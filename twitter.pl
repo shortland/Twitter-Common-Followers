@@ -9,14 +9,13 @@ my $followersToList = "artosis";
 
 # merry go round
 our @applicationNames = ("AppName1", "AppName2", "AppName3");
+our @keys = ("KeyHere1", "KeyHere2", "KeyHere3");
+our @secrets = ("SecretHere1", "SecretHere2", "SecretHere3");
+
+# first run of the script will use the first key/secret/appname [0] from above
 my $applicationName = @applicationNames[0];
-
-our @keys = ("Key1ForApp1", "Key1ForApp2", "Key1ForApp3");
 my $key = @keys[0];
-
-our @secrets = ("Secret1ForApp1", "Secret1ForApp2", "Secret1ForApp3");
 my $secret = @secrets[0];
-
 my $token = newToken($key, $secret, $applicationName); 
 
 # gets the first chunk (max 200) followers
@@ -28,6 +27,7 @@ if(@userListing[1] =~ /^0$/) {
 }
 elsif(@userListing[1] > 0) {
 	write_file("followers.txt", @userListing[0]);
+	print "Looks like we've successfully fetched the first 200 followers.\n";
 	print "There is more we can get!\n";
 	print "Type 'y' to continue fetching followers or\n";
 	print "Type 'n' to stop\n";
@@ -94,7 +94,7 @@ sub recursiveCaller {
 
 		my $exit = @res[1];
 		if($exit =~ /^$/) {
-			$exit = "Max requests reached!\n\n";
+			$exit = "Max requests reached!\nCeasing use of App" . @parms[1] . "\n\n";
 		}
 		print "Looks like we've reached the end!\n" . $exit;
 		## position of current app name (0)+1
@@ -117,4 +117,4 @@ sub recursiveCaller {
 	}
 }
 
-
+# just a funny side thing; I'm currently learning about cursors in class, and Twitter API uses cursor=...
