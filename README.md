@@ -13,3 +13,6 @@ Edit twitter.pl and manually write in your API Keys and Secrets. I'll add comman
   - Each request can contain a maximum of 200 followers
   - So we can only list 6,000 followers every 15 minutes with 1 API Key and Secret
  
+# Planned
+
+- Lists common/shared followers of two people
