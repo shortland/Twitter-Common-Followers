@@ -1,6 +1,6 @@
 # Twitter-Common-Followers
 
-Go to: https://apps.twitter.com to register an application (to create an API Keys & Secret)
+Go to: https://apps.twitter.com to register an application (to create API Key & Secret)
 
 Edit twitter.pl and manually write in your API Keys and Secrets. I'll add command line support eventually? (maybe? I think it's just simpler to have it coded in rather than retype it everytime you run the script...)
 
