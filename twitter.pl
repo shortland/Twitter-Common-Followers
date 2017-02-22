@@ -12,10 +12,13 @@ our @applicationNames = ("AppName1", "AppName2", "AppName3");
 our @keys = ("KeyHere1", "KeyHere2", "KeyHere3");
 our @secrets = ("SecretHere1", "SecretHere2", "SecretHere3");
 
+
 # first run of the script will use the first key/secret/appname [0] from above
-my $applicationName = @applicationNames[0];
-my $key = @keys[0];
-my $secret = @secrets[0];
+my $keyNumber = 0; #index of which key to use
+
+my $applicationName = @applicationNames[$keyNumber];
+my $key = @keys[$keyNumber];
+my $secret = @secrets[$keyNumber];
 my $token = newToken($key, $secret, $applicationName); 
 
 # gets the first chunk (max 200) followers
@@ -35,6 +38,7 @@ elsif(@userListing[1] > 0) {
 	chomp(my $answer = <STDIN>);
 	print "This'll take awhile...\n";
 	if($answer =~ /^y|Y$/) {
+		our $startTime = time;
 		recursiveCaller($token, $applicationName, $followersToList, @userListing[1]);
 	}
 	else {
@@ -92,11 +96,21 @@ sub recursiveCaller {
 	else {
 		append_file("followers.txt", @res[0]);
 
-		my $exit = @res[1];
-		if($exit =~ /^$/) {
-			$exit = "Max requests reached!\nCeasing use of App" . @parms[1] . "\n\n";
+		if(@res[1] =~ /^0$/) {
+			$duration = time - $startTime;
+			die "Looks like we've reached the end!\nCeasing use of App: " . @parms[1] . "\nDURATION: " . $duration . " seconds\n";
 		}
-		print "Looks like we've reached the end!\n" . $exit;
+		else {
+			## possible that we ran out of qouta, or??
+			if ((decode_json(@res[2])->{"errors"}[0]{"code"}) =~ /^88$/) {
+				print "Exceeded qouta, attempting to continue...\n";
+				goto CONTINUEAPP;
+			}
+			else {
+				die  @res[2] . "\n";
+			}
+		}
+		CONTINUEAPP:
 		## position of current app name (0)+1
 		$j = 0;
 		$found = -1;
@@ -111,10 +125,9 @@ sub recursiveCaller {
 			recursiveCaller(newToken(0, 0, @applicationNames[$found+1], $found+1), @applicationNames[$found+1], @parms[2], $temporaryStorage);
 		}
 		else {
-			print "Used all ". ($found+1) ." API keys available.\n";
-			exit;
+			print "Used all ". ($found+1) ." API keys available.\nRestarting process\nWARNING: You'll need to manually kill script beyond now, may loop forawhile in unable to use API key b/c threshold";
+			recursiveCaller(newToken(0, 0, @applicationNames[0], 0), @applicationNames[0], @parms[2], $temporaryStorage);
+			#exit;
 		}
 	}
 }
-
-# just a funny side thing; I'm currently learning about cursors in class, and Twitter API uses cursor=...
