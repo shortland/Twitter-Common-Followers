@@ -3,7 +3,7 @@
 use JSON;
 use File::Slurp;
 use MIME::Base64;
-use vars qw(); # global variables... so we can access array of names/keys etc... really is me being lazy
+use vars qw();
 
 my $followersToList = "artosis";
 
@@ -12,6 +12,8 @@ our @applicationNames = ("AppName1", "AppName2", "AppName3");
 our @keys = ("KeyHere1", "KeyHere2", "KeyHere3");
 our @secrets = ("SecretHere1", "SecretHere2", "SecretHere3");
 
+our $startTime = time;
+our $startTimeo = time;
 
 # first run of the script will use the first key/secret/appname [0] from above
 my $keyNumber = 0; #index of which key to use
@@ -24,11 +26,11 @@ my $token = newToken($key, $secret, $applicationName);
 # gets the first chunk (max 200) followers
 my @userListing = freshFetch($token, $applicationName, $followersToList);
 
-if(@userListing[1] =~ /^0$/) {
+if (@userListing[1] =~ /^0$/) {
 	print "Process has complete. Follower list in 'followers.txt'\n";
 	write_file("followers.txt", @userListing[0]);
 }
-elsif(@userListing[1] > 0) {
+elsif (@userListing[1] > 0) {
 	write_file("followers.txt", @userListing[0]);
 	print "Looks like we've successfully fetched the first 200 followers.\n";
 	print "There is more we can get!\n";
@@ -37,8 +39,8 @@ elsif(@userListing[1] > 0) {
 	print "(y/n): ";
 	chomp(my $answer = <STDIN>);
 	print "This'll take awhile...\n";
-	if($answer =~ /^y|Y$/) {
-		our $startTime = time;
+	if ($answer =~ /^y|Y$/) {
+		$startTime = time;
 		recursiveCaller($token, $applicationName, $followersToList, @userListing[1]);
 	}
 	else {
@@ -53,7 +55,7 @@ else {
 
 sub newToken {
 	my @parms = @_;
-	if(defined @parms[3]) {
+	if (defined @parms[3]) {
 		@parms[0] = @keys[@parms[3]];
 		@parms[1] = @secrets[@parms[3]];
 	}
@@ -66,8 +68,8 @@ sub newToken {
 
 sub freshFetch {
 	my @parms = @_;
-	if(!defined @parms[3]) {
-		$cursor = "-1";
+	if (!defined @parms[3]) {
+		$cursor = "1399215995467571167";
 	}
 	else {
 		$cursor = @parms[3];
@@ -76,7 +78,7 @@ sub freshFetch {
 	my $decodedJson = decode_json($res);
 	my $followers = $decodedJson->{'users'};
 	$list = "";
-	for($i = 0; $i < scalar(@{$followers}); $i++) {
+	for ($i = 0; $i < scalar(@{$followers}); $i++) {
 		$list .= $decodedJson->{'users'}[$i]{'screen_name'}."\n";
 	}
 	my @listing = ($list, $decodedJson->{'next_cursor'}, $res);
@@ -86,48 +88,53 @@ sub freshFetch {
 our $temporaryStorage;
 sub recursiveCaller {
 	my @parms = @_;
-	#token, appName, followersOf, cursor
 	my @res = freshFetch(@parms[0], @parms[1], @parms[2], @parms[3]);
-	if(@res[1] > 0) {
+	if (@res[1] > 0) {
 		append_file("followers.txt", @res[0]);
-		$temporaryStorage = @res[1]; # temporarily store most recent valid cursor; so we can pass it to a working key if current key maxes out
+		$temporaryStorage = @res[1];
 		recursiveCaller(@parms[0], @parms[1], @parms[2], @res[1]);
 	}
 	else {
 		append_file("followers.txt", @res[0]);
 
-		if(@res[1] =~ /^0$/) {
-			$duration = time - $startTime;
+		if (@res[1] =~ /^0$/) {
+			$duration = time - $startTimeo;
 			die "Looks like we've reached the end!\nCeasing use of App: " . @parms[1] . "\nDURATION: " . $duration . " seconds\n";
 		}
 		else {
 			## possible that we ran out of qouta, or??
 			if ((decode_json(@res[2])->{"errors"}[0]{"code"}) =~ /^88$/) {
-				print "Exceeded qouta, attempting to continue...\n";
+				print "Exceeded qouta, attempting to continue...[cursor: $temporaryStorage]\n";
+				goto CONTINUEAPP;
+			}
+			elsif ((decode_json(@res[2])->{"errors"}[0]{"code"}) =~ /^130$/) {
+				print "Over capacity error, attempting to skip this key...[cursor: $temporaryStorage]\n";
 				goto CONTINUEAPP;
 			}
 			else {
-				die  @res[2] . "\n";
+				die  @res[2] . "[cursor: $temporaryStorage]\n";
 			}
 		}
 		CONTINUEAPP:
-		## position of current app name (0)+1
+		$d = 0;
 		$j = 0;
-		$found = -1;
-		for($j; $j < scalar(@applicationNames); $j++) {
-			if(@applicationNames[$j] =~ /^@parms[1]$/) {
+		for ($j; $j < scalar(@applicationNames); $j++) {
+			if (@applicationNames[$j] =~ /^@parms[1]$/) {
 				$found = $j
 			}
 		}
 
-		if(scalar(@applicationNames) > $found+1) {
-			print "Looks like we can proceed with another API key\n";
+		if (scalar(@applicationNames) > $found+1) {
+			print "Looks like we can proceed with another API key (index: ".($found+1).")\n";
 			recursiveCaller(newToken(0, 0, @applicationNames[$found+1], $found+1), @applicationNames[$found+1], @parms[2], $temporaryStorage);
 		}
 		else {
-			print "Used all ". ($found+1) ." API keys available.\nRestarting process\nWARNING: You'll need to manually kill script beyond now, may loop forawhile in unable to use API key b/c threshold";
+			my $sleepTime = ( 900 - (time - $startTime) );
+			print "Used all ". ($found+1) ." API keys available.\nWill sleep(seconds: $sleepTime) until 15 minutes from execution has passed.\n";
+			sleep($sleepTime);
+			$startTime = time;
+			print "Restarting process\nWARNING: You'll need to manually kill script beyond now, may loop forawhile in unable to use API key b/c threshold\n\n";
 			recursiveCaller(newToken(0, 0, @applicationNames[0], 0), @applicationNames[0], @parms[2], $temporaryStorage);
-			#exit;
 		}
 	}
 }
